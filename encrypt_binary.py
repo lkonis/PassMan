@@ -18,14 +18,14 @@ def encrypt_file(input_file_path, output_file_path, key):
     # Initialize the AES cipher with Cipher Block Chaining (CBC) mode.
     cipher = AES.new(key, AES.MODE_CBC, iv)
 
-    # Write the IV to the beginning of the output file.
     with open(output_file_path, 'wb') as out_file:
         # write the key in the first 16 bytes
         out_file.write(iv)
         # write file size in bytes in the next 16 bytes
         file_size = os.path.getsize(input_file_path)
-
-        out_file.write(file_size.to_bytes(4,byteorder='big'))
+        chunk = file_size.to_bytes(16,byteorder='big')
+        encrypted_chunk = cipher.encrypt(chunk)
+        out_file.write(encrypted_chunk)
 
         # Encrypt the file chunk by chunk.
         with open(input_file_path, 'rb') as in_file:
@@ -48,11 +48,14 @@ def decrypt_file(input_file_path, output_file_path, key):
     with open(input_file_path, 'rb') as in_file:
         # Read the IV from the beginning of the input file.
         iv = in_file.read(AES.block_size)
-        file_size = in_file.read(4)
-        filesize = int.from_bytes(file_size, byteorder='big')
 
         # Initialize the decryption with the IV.
         cipher = AES.new(key, AES.MODE_CBC, iv)
+
+        chunk = in_file.read(16)
+        decrypted_chunk = cipher.decrypt(chunk)
+        filesize = int.from_bytes(decrypted_chunk, byteorder='big')
+
 
         # Create a flag to indicate if we have reached the last chunk.
         last_chunk = False
