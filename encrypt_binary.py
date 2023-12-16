@@ -7,6 +7,7 @@ import random
 import numpy.random
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
+from Crypto.Util.Padding import pad, unpad
 
 def getIV(password):
     initVector = hashlib.sha256(password).digest()[:16]
@@ -26,22 +27,45 @@ def encrypt_file(input_file_path, output_file_path, key):
         chunk = file_size.to_bytes(16,byteorder='big')
         encrypted_chunk = cipher.encrypt(chunk)
         out_file.write(encrypted_chunk)
+        # write tag for validation
+        chunk = b'feedbeef'
+        padded_chunk=pad(chunk, AES.block_size)
+        encrypted_chunk = cipher.encrypt(padded_chunk)
+        out_file.write(encrypted_chunk)
 
         # Encrypt the file chunk by chunk.
         with open(input_file_path, 'rb') as in_file:
-            pad=0
+            padding=0
             while True:
                 chunk = in_file.read(16)  # Read 16 bytes at a time.
                 if len(chunk) == 0:
                     break
                 elif len(chunk) % 16 != 0:
                     # Pad the last chunk if it's not a multiple of 16.
-                    pad = (16 - len(chunk) % 16)
-                    chunk += b' ' * pad
+                    padding = (16 - len(chunk) % 16)
+                    chunk += b' ' * padding
 
                 encrypted_chunk = cipher.encrypt(chunk)
                 out_file.write(encrypted_chunk)
-        return pad
+        return padding
+
+def show_message_box(text):
+    # Create a QMessageBox
+    msg_box = QMessageBox()
+
+    # Set the properties of the message box
+    msg_box.setWindowTitle('Information')
+    msg_box.setText(text)
+    msg_box.setIcon(QMessageBox.Information)
+    msg_box.setStandardButtons(QMessageBox.Ok)
+
+    # Show the message box and wait for the user's response
+    response = msg_box.exec_()
+
+    # You can handle the user's response if needed
+    if response == QMessageBox.Ok:
+        print('User clicked Ok')
+
 
 def decrypt_file(input_file_path, output_file_path, key):
     # open and process the encrypted data file
@@ -52,10 +76,19 @@ def decrypt_file(input_file_path, output_file_path, key):
         # Initialize the decryption with the IV.
         cipher = AES.new(key, AES.MODE_CBC, iv)
 
+        # read file size
         chunk = in_file.read(16)
         decrypted_chunk = cipher.decrypt(chunk)
         filesize = int.from_bytes(decrypted_chunk, byteorder='big')
 
+        # read the validation tag
+        chunk = in_file.read(16)
+        decrypted_chunk = cipher.decrypt(chunk)
+        chunk = b'feedbeef'
+        padded_chunk=pad(chunk, AES.block_size)
+
+        if not decrypted_chunk==padded_chunk:
+            return False
 
         # Create a flag to indicate if we have reached the last chunk.
         last_chunk = False
@@ -76,6 +109,7 @@ def decrypt_file(input_file_path, output_file_path, key):
                     # Remove the padding if it's the last chunk.
                     decrypted_chunk = decrypted_chunk.rstrip(b' ')
                 out_file.write(decrypted_chunk)
+        return True
 def compare_files(file1, file2):
 
     result = filecmp.cmp(file1, file2)
@@ -96,17 +130,21 @@ if __name__ == "__main__":
 
     # create random table
     in_data = numpy.random.randint(1,3, size=(2,3))
-    # pickle data in file
+    in_data = numpy.char.mod("a%d",in_data)
+    # 1. pickle data in file
     pickle.dump(in_data, open(input_file_path, "wb"))
-    # Encrypt the input file.
+    # 2. Encrypt the input file.
     encrypt_file(input_file_path, encrypted_file_path, encryption_key)
     print("File encrypted successfully!")
 
-    # Decrypt the encrypted file.
+    # 3. Decrypt the encrypted file.
     decrypt_file(encrypted_file_path, decrypted_file_path, encryption_key)
     print("File decrypted successfully!")
 
     compare_files(input_file_path, decrypted_file_path)
-    print("input data:\n",pickle.load(open(input_file_path,"rb")))
-    print("input data after encryption->decryption:\n",pickle.load(open(decrypted_file_path,"rb")))
+    # 4. load the pickle
+    unpickled = pickle.load(open(input_file_path,"rb"))
+    print("input data:\n",unpickled)
+    unpickled = pickle.load(open(decrypted_file_path, "rb"))
+    print("input data after encryption->decryption:\n",unpickled)
 

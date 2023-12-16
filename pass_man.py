@@ -36,7 +36,8 @@ class PassManager(QWidget):
 
         # Create the account page
         self.account_page = self.CreatePage()
-        self.ap=AccPage(self.account_page, self)
+        #self.ap=(
+        AccPage(self.account_page, self)
 
 
         # add the pages to top level layout
@@ -63,6 +64,7 @@ class PassManager(QWidget):
                 self.showdialog("Wrong password, " + str(self.tries) + " tries left")
                 self.pp.enter_pswd.setText('')
             else:
+                #todo: send mail to alert me about possible break in
                 self.close()
 
     def createPassLine(self):
@@ -71,7 +73,7 @@ class PassManager(QWidget):
         return enter_pswd
 
     def returnPressed(self):
-        self.pp.pushButtonOk.click()
+        self.pp.pushButtonPass.click()
 
     def CreateGrayPallete(self):
         pg_pallete = QPalette()
